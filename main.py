@@ -90,6 +90,11 @@ async def play(ctx, *, query: str):
 
 @bot.command()
 async def skip(ctx):
+
+    if ctx.author.voice is None or ctx.author.voice.channel is None:
+        await ctx.send("You need to be in a voice channel")
+        return
+
     if ctx.voice_client is not None and ctx.voice_client.is_playing():
         ctx.voice_client.stop()
         await ctx.send("Skipping...")
@@ -99,6 +104,11 @@ async def skip(ctx):
 
 @bot.command()
 async def stop(ctx):
+
+    if ctx.author.voice is None or ctx.author.voice.channel is None:
+        await ctx.send("You need to be in a voice channel")
+        return
+
     with music_queue.mutex:
         music_queue.queue.clear()
     asyncio.run_coroutine_threadsafe(
@@ -107,6 +117,10 @@ async def stop(ctx):
 
 @bot.command()
 async def speed(ctx, speed: float):
+
+    if ctx.author.voice is None or ctx.author.voice.channel is None:
+        await ctx.send("You need to be in a voice channel")
+        return
 
     truncated_speed = round(speed, 2)
 
@@ -139,6 +153,10 @@ async def speed(ctx, speed: float):
 @bot.command()
 async def volume(ctx, volume: float):
 
+    if ctx.author.voice is None or ctx.author.voice.channel is None:
+        await ctx.send("You need to be in a voice channel")
+        return
+
     truncated_volume = round(volume, 2)
 
     if not 0.1 <= truncated_volume <= 2:
@@ -168,6 +186,10 @@ async def volume(ctx, volume: float):
 
 @bot.command()
 async def default(ctx):
+
+    if ctx.author.voice is None or ctx.author.voice.channel is None:
+        await ctx.send("You need to be in a voice channel")
+        return
 
     # load config volume
     with open('config.json', 'r') as file:
