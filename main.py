@@ -53,14 +53,24 @@ async def play_music(ctx, url):
 
     # if no music in queue
     if not ctx.voice_client.is_playing():
+        try:
 
-        ydl_opts = {'quiet': True, 'format': 'bestaudio'}
-        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            audio_url = info['formats'][0]['url']
-            ctx.voice_client.play(discord.FFmpegOpusAudio(
-                audio_url, **FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop))
-            await ctx.send(f'Playing: {info["title"]} <{url}>')
+            ydl_opts = {'quiet': True, 'format': 'bestaudio'}
+            with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(url, download=False)
+                audio_url = info['formats'][0]['url']
+                ctx.voice_client.play(discord.FFmpegOpusAudio(
+                    audio_url, **FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop))
+                await ctx.send(f'Playing: {info["title"]} <{url}>')
+        except Exception as e:
+            embed = discord.Embed(
+                title="Issue that occured and i didn't parse any of this",
+                color=discord.Color.red()
+            )
+            embed.add_field(name="error", value=f"{e}", inline=True)
+
+            await ctx.send(embed=embed)
+
     else:
         music_queue.put(url)
         await ctx.send(f'Added to queue. Queue size of {music_queue.qsize()}')
