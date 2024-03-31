@@ -24,6 +24,14 @@ async def on_ready():
     print(f'Logged in as {bot.user}')
 
 
+@bot.command()
+async def reload(ctx, extension):
+    bot.reload_extension(f"cogs.{extension}")
+    embed = discord.Embed(title='Reload', description=f'{
+                          extension} successfully reloaded', color=0xff00c8)
+    await ctx.send(embed=embed)
+
+
 async def play_next(ctx):
     if not music_queue.empty():
         await play_music(ctx, music_queue.get_nowait())
