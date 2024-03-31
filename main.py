@@ -86,16 +86,26 @@ async def play(ctx, *, query: str):
     if ctx.voice_client is None:
         await voice_channel.connect()
 
-    if "youtube.com" in query:
-        print(query)
-        await play_music(ctx, query)
-    else:
-        search_query = f"ytsearch:{query}"
-        print(search_query)
-        with youtube_dl.YoutubeDL({'format': 'bestaudio'}) as ydl:
-            info = ydl.extract_info(search_query, download=False)
-            constructed_url = info['entries'][0]['webpage_url']
-            await play_music(ctx, constructed_url)
+    try:
+
+        if "youtube.com" in query:
+            print(query)
+            await play_music(ctx, query)
+        else:
+            search_query = f"ytsearch:{query}"
+            print(search_query)
+            with youtube_dl.YoutubeDL({'format': 'bestaudio'}) as ydl:
+                info = ydl.extract_info(search_query, download=False)
+                constructed_url = info['entries'][0]['webpage_url']
+                await play_music(ctx, constructed_url)
+    except Exception as e:
+        embed = discord.Embed(
+            title="Issue that occured and i didn't parse any of this",
+            color=discord.Color.red()
+        )
+        embed.add_field(name="error", value=f"{e}", inline=True)
+
+        await ctx.send(embed=embed)
 
 
 @bot.command()
