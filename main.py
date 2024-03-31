@@ -70,6 +70,10 @@ async def play_music(ctx, url):
             embed.add_field(name="error", value=f"{e}", inline=True)
 
             await ctx.send(embed=embed)
+            with music_queue.mutex:
+                music_queue.queue.clear()
+            asyncio.run_coroutine_threadsafe(
+                ctx.voice_client.disconnect(), bot.loop)
 
     else:
         music_queue.put(url)
@@ -106,6 +110,10 @@ async def play(ctx, *, query: str):
         embed.add_field(name="error", value=f"{e}", inline=True)
 
         await ctx.send(embed=embed)
+        with music_queue.mutex:
+            music_queue.queue.clear()
+        asyncio.run_coroutine_threadsafe(
+            ctx.voice_client.disconnect(), bot.loop)
 
 
 @bot.command()
