@@ -22,7 +22,9 @@ music_queue = queue.Queue()
 @bot.event
 async def on_ready(ctx):
     print(f'Logged in as {bot.user}')
-    await ctx.send("Bot has restarted")
+    # riff raff main
+    channel = bot.get_channel(1198864658308812842)
+    await channel.send("Bot has restarted")
 
 
 @bot.command()
