@@ -85,7 +85,7 @@ async def play_music(ctx, url):
 
     else:
         music_queue.put(url)
-        await ctx.send(f'Added to queue. Queue size of {music_queue.qsize()}')
+        await ctx.send(f'Added to <{url}> queue. Queue size of {music_queue.qsize()}')
 
 
 @bot.command()
