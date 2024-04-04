@@ -22,6 +22,9 @@ music_queue = queue.Queue()
 @bot.event
 async def on_ready():
     print(f'Logged in as {bot.user}')
+    # riff raff main
+    channel = bot.get_channel(1198864658308812842)
+    await channel.send("Bot has restarted")
 
 
 @bot.command()
@@ -38,6 +41,15 @@ async def play_next(ctx):
     else:
         asyncio.run_coroutine_threadsafe(
             ctx.voice_client.disconnect(), bot.loop)
+        # reset to default settings upon leave
+        with open('config.json', 'r') as file:
+            config_data = json.load(file)
+
+        config_data['volume'] = 1
+        config_data['playback_speed'] = 1
+
+        with open('config.json', 'w') as file:
+            json.dump(config_data, file, indent=4)
 
 
 async def play_music(ctx, url):
@@ -72,10 +84,10 @@ async def play_music(ctx, url):
                 await ctx.send(f'Playing: {info["title"]} <{url}>')
         except Exception as e:
             embed = discord.Embed(
-                title="Issue that occured and i didn't parse any of this",
+                title="Issue that occurred and i didn't parse any of this",
                 color=discord.Color.red()
             )
-            embed.add_field(name="error", value=f"{e}", inline=True)
+            embed.add_field(name="", value=f"{e}", inline=True)
 
             await ctx.send(embed=embed)
             with music_queue.mutex:
@@ -112,10 +124,10 @@ async def play(ctx, *, query: str):
                 await play_music(ctx, constructed_url)
     except Exception as e:
         embed = discord.Embed(
-            title="Issue that occured and i didn't parse any of this",
+            title="Issue that occurred and i didn't parse any of this",
             color=discord.Color.red()
         )
-        embed.add_field(name="error", value=f"{e}", inline=True)
+        embed.add_field(name="", value=f"{e}", inline=True)
 
         await ctx.send(embed=embed)
         with music_queue.mutex:
@@ -149,6 +161,15 @@ async def stop(ctx):
         music_queue.queue.clear()
     asyncio.run_coroutine_threadsafe(
         ctx.voice_client.disconnect(), bot.loop)
+    # reset to default settings upon leave
+    with open('config.json', 'r') as file:
+        config_data = json.load(file)
+
+    config_data['volume'] = 1
+    config_data['playback_speed'] = 1
+
+    with open('config.json', 'w') as file:
+        json.dump(config_data, file, indent=4)
 
 
 @bot.command()
