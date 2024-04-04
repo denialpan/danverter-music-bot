@@ -20,8 +20,9 @@ music_queue = queue.Queue()
 
 
 @bot.event
-async def on_ready():
+async def on_ready(ctx):
     print(f'Logged in as {bot.user}')
+    await ctx.send("Bot has restarted")
 
 
 @bot.command()
