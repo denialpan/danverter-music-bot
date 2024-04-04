@@ -20,7 +20,7 @@ music_queue = queue.Queue()
 
 
 @bot.event
-async def on_ready(ctx):
+async def on_ready():
     print(f'Logged in as {bot.user}')
     # riff raff main
     channel = bot.get_channel(1198864658308812842)
