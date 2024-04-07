@@ -40,7 +40,7 @@ async def on_command_error(ctx, error):
 
 
 @bot.command()
-async def commands(ctx, extension):
+async def reload(ctx, extension):
     bot.reload_extension(f"cogs.{extension}")
     embed = discord.Embed(title='Reload', description=f'{
                           extension} successfully reloaded', color=0xff00c8)
