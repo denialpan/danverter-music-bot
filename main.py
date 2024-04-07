@@ -32,7 +32,7 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound):
         embed = discord.Embed(
             title="you're jacob's elo graph",
-            description=f"!play \n !skip \n !stop \n !q \n !speed \n !volume",
+            description=f"!play \n !skip \n !stop \n !q \n !speed \n !volume \n !default",
             color=discord.Color(0x000000)
         )
 
