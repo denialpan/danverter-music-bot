@@ -30,11 +30,17 @@ async def on_ready():
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound):
-        await ctx.send("you're jacob's elo graph")
+        embed = discord.Embed(
+            title="you're jacob's elo graph",
+            description=f"!play \n !skip \n !stop \n !q \n !speed \n !volume",
+            color=discord.Color(0x000000)
+        )
+
+        await ctx.send(embed=embed)
 
 
 @bot.command()
-async def reload(ctx, extension):
+async def commands(ctx, extension):
     bot.reload_extension(f"cogs.{extension}")
     embed = discord.Embed(title='Reload', description=f'{
                           extension} successfully reloaded', color=0xff00c8)
