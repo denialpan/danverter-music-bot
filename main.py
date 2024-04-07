@@ -27,6 +27,12 @@ async def on_ready():
     await channel.send("Bot has restarted")
 
 
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.CommandNotFound):
+        await ctx.send("you're jacob's elo graph")
+
+
 @bot.command()
 async def reload(ctx, extension):
     bot.reload_extension(f"cogs.{extension}")
@@ -37,7 +43,8 @@ async def reload(ctx, extension):
 
 async def play_next(ctx):
     if not music_queue.empty():
-        await play_music(ctx, music_queue.get_nowait())
+        song = music_queue.get_nowait()
+        await play_music(ctx, list(song.keys())[0])
     else:
         asyncio.run_coroutine_threadsafe(
             ctx.voice_client.disconnect(), bot.loop)
@@ -72,32 +79,39 @@ async def play_music(ctx, url):
     }
 
     # if no music in queue
-    if not ctx.voice_client.is_playing():
-        try:
 
-            ydl_opts = {'quiet': True, 'format': 'bestaudio'}
-            with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=False)
-                audio_url = info['formats'][0]['url']
+    try:
+
+        ydl_opts = {'quiet': True, 'format': 'bestaudio'}
+        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=False)
+            audio_url = info['formats'][0]['url']
+
+            if not ctx.voice_client.is_playing():
+
                 ctx.voice_client.play(discord.FFmpegOpusAudio(
                     audio_url, **FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop))
                 await ctx.send(f'Playing: {info["title"]} <{url}>')
-        except Exception as e:
-            embed = discord.Embed(
-                title="Issue that occurred and i didn't parse any of this",
-                color=discord.Color.red()
-            )
-            embed.add_field(name="", value=f"{e}", inline=True)
+            else:
+                key = f"{url}"
+                value = f"{info["title"]}"
+                pair = {key: value}
+                print(pair)
+                music_queue.put(pair)
+                await ctx.send(f'Added {info["title"]} <{url}> to queue. Queue size of {music_queue.qsize()}')
 
-            await ctx.send(embed=embed)
-            with music_queue.mutex:
-                music_queue.queue.clear()
-            asyncio.run_coroutine_threadsafe(
-                ctx.voice_client.disconnect(), bot.loop)
+    except Exception as e:
+        embed = discord.Embed(
+            title="Issue that occurred and i didn't parse any of this",
+            color=discord.Color.red()
+        )
+        embed.add_field(name="", value=f"{e}", inline=True)
 
-    else:
-        music_queue.put(url)
-        await ctx.send(f'Added <{url}> to queue. Queue size of {music_queue.qsize()}')
+        await ctx.send(embed=embed)
+        with music_queue.mutex:
+            music_queue.queue.clear()
+        asyncio.run_coroutine_threadsafe(
+            ctx.voice_client.disconnect(), bot.loop)
 
 
 @bot.command()
@@ -173,6 +187,40 @@ async def stop(ctx):
 
 
 @bot.command()
+async def q(ctx):
+
+    if ctx.author.voice is None or ctx.author.voice.channel is None:
+        await ctx.send("You need to be in a voice channel")
+        return
+
+    constructed_queue_list = ""
+
+    if music_queue.empty():
+        constructed_queue_list = "Queue is empty"
+    else:
+        count = 0
+
+        for song in music_queue.queue:
+            constructed_queue_list += f"{count}. {
+                song[list(song.keys())[0]]} \n"
+            count += 1
+
+        embed = discord.Embed(
+            title="Queue",
+            description=constructed_queue_list,
+            color=discord.Color(0x000000)
+        )
+
+    embed = discord.Embed(
+        title="Queue",
+        description=constructed_queue_list,
+        color=discord.Color(0x000000)
+    )
+
+    await ctx.send(embed=embed)
+
+
+@bot.command()
 async def speed(ctx, speed: float):
 
     if ctx.author.voice is None or ctx.author.voice.channel is None:
@@ -201,7 +249,6 @@ async def speed(ctx, speed: float):
     embed = discord.Embed(
         description=f"Set playback speed as **{truncated_speed}**",
         color=discord.Color.green()
-
     )
 
     await ctx.channel.send(embed=embed)
