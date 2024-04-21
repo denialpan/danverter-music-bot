@@ -18,6 +18,8 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 
 music_queue = queue.Queue()
 
+pending = False
+
 
 @bot.event
 async def on_ready():
@@ -39,19 +41,11 @@ async def on_command_error(ctx, error):
         await ctx.send(embed=embed)
 
 
-@bot.command()
-async def reload(ctx, extension):
-    bot.reload_extension(f"cogs.{extension}")
-    embed = discord.Embed(title='Reload', description=f'{
-                          extension} successfully reloaded', color=0xff00c8)
-    await ctx.send(embed=embed)
-
-
 async def play_next(ctx):
     if not music_queue.empty():
         song = music_queue.get_nowait()
         await play_music(ctx, list(song.keys())[0])
-    else:
+    elif not pending:
         asyncio.run_coroutine_threadsafe(
             ctx.voice_client.disconnect(), bot.loop)
         # reset to default settings upon leave
@@ -66,6 +60,9 @@ async def play_next(ctx):
 
 
 async def play_music(ctx, url):
+
+    global pending
+    pending = True
 
     voice_channel = ctx.author.voice.channel
     voice_client = discord.utils.get(bot.voice_clients, guild=ctx.guild)
@@ -118,6 +115,8 @@ async def play_music(ctx, url):
             music_queue.queue.clear()
         asyncio.run_coroutine_threadsafe(
             ctx.voice_client.disconnect(), bot.loop)
+
+    pending = False
 
 
 @bot.command()
