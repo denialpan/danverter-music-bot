@@ -94,7 +94,7 @@ async def play_music(ctx, url):
 
                 ctx.voice_client.play(discord.FFmpegOpusAudio(
                     audio_url, **FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop))
-                await ctx.send(f'Playing: {info["title"]} <{url}>')
+                await ctx.send(f'Playing: {info["title"]} {info['duration']} <{url}>')
             else:
                 key = f"{url}"
                 value = f"{info["title"]}"
