@@ -6,6 +6,7 @@ import youtube_dl
 import json
 import asyncio
 import queue
+import datetime
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -94,7 +95,7 @@ async def play_music(ctx, url):
 
                 ctx.voice_client.play(discord.FFmpegOpusAudio(
                     audio_url, **FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop))
-                await ctx.send(f'Playing: {info["title"]} {info['duration']} <{url}>')
+                await ctx.send(f'Playing: {info["title"]} [{str(datetime.timedelta(seconds=info["duration"]))}] <{url}>')
             else:
                 key = f"{url}"
                 value = f"{info["title"]}"
