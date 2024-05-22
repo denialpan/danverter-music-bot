@@ -60,7 +60,7 @@ async def play_next(ctx):
             json.dump(config_data, file, indent=4)
 
 
-async def play_music(ctx, url):
+async def play_music(ctx, url: str):
 
     global pending
     pending = True
@@ -83,26 +83,48 @@ async def play_music(ctx, url):
     }
 
     # if no music in queue
-
     try:
 
-        ydl_opts = {'quiet': True, 'format': 'bestaudio'}
+        ydl_opts = {
+            'format': 'bestaudio/best',  # Choose your desired format
+            'noplaylist': True,
+            'quiet': True  # Suppress output
+        }
+
+        info = None
+
         with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=False)
-            audio_url = info['formats'][0]['url']
+            try:
+                info = ydl.extract_info(url, download=False)
+            except youtube_dl.utils.ExtractorError:
+                await ctx.send("Invalid YouTube link.")
+                return
 
-            if not ctx.voice_client.is_playing():
+        # Handle playlists
+        if 'entries' in info:
+            for entry in info['entries']:
+                # Extract the video URL from the entry
+                video_url = entry['url']
+                # Process the video URL here
+                # ... (Your code to play the audio)
+        else:
+            # Extract the video URL for single videos
+            video_url = info['url']
+            # Process the video URL here
+            # ... (Your code to play the audio)
 
-                ctx.voice_client.play(discord.FFmpegOpusAudio(
-                    audio_url, **FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop))
-                await ctx.send(f'Playing: {info["title"]} [{str(datetime.timedelta(seconds=info["duration"]))}] <{url}>')
-            else:
-                key = f"{url}"
-                value = f"{info["title"]}"
-                pair = {key: value}
-                print(pair)
-                music_queue.put(pair)
-                await ctx.send(f'Added {info["title"]} <{url}> to queue. Queue size of {music_queue.qsize()}')
+        if not ctx.voice_client.is_playing():
+
+            ctx.voice_client.play(discord.FFmpegOpusAudio(
+                video_url, **FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop))
+            await ctx.send(f'Playing: {info["title"]} [{str(datetime.timedelta(seconds=info["duration"]))}] <{url}>')
+        else:
+            key = f"{url}"
+            value = f"{info["title"]}"
+            pair = {key: value}
+            print(pair)
+            music_queue.put(pair)
+            await ctx.send(f'Added {info["title"]} <{url}> to queue. Queue size of {music_queue.qsize()}')
 
     except Exception as e:
         embed = discord.Embed(
@@ -135,6 +157,8 @@ async def play(ctx, *, query: str):
         if "youtube.com" in query:
             print(query)
             await play_music(ctx, query)
+        elif "youtu.be" in query:
+            await play_music(ctx, f"https://www.youtube.com/watch?v={query.split('/')[-1]}")
         else:
             search_query = f"ytsearch:{query}"
             print(search_query)
@@ -142,6 +166,7 @@ async def play(ctx, *, query: str):
                 info = ydl.extract_info(search_query, download=False)
                 constructed_url = info['entries'][0]['webpage_url']
                 await play_music(ctx, constructed_url)
+
     except Exception as e:
         embed = discord.Embed(
             title="Issue that occurred and i didn't parse any of this",
