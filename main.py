@@ -8,6 +8,17 @@ import asyncio
 import queue
 import datetime
 
+
+class Video:
+    def __init__(self, title: str, duration: str, yt_share_link: str):
+        self.title = title
+        self.duration = duration
+        self.yt_share_link = yt_share_link
+
+    def __str__(self):
+        return f"DEBUG INFORMATION {self.title} {str(datetime.timedelta(seconds=self.duration))} <{self.yt_share_link}>"
+
+
 intents = discord.Intents.default()
 intents.message_content = True
 intents.voice_states = True
@@ -18,8 +29,7 @@ load_dotenv()
 TOKEN = os.getenv("DISCORD_TOKEN")
 
 music_queue = queue.Queue()
-
-pending = False
+processing_video = False
 
 
 @bot.event
@@ -27,7 +37,7 @@ async def on_ready():
     print(f'Logged in as {bot.user}')
     # riff raff main
     channel = bot.get_channel(1198864658308812842)
-    await channel.send("Bot has restarted")
+    # await channel.send("Bot has restarted")
 
 
 @bot.event
@@ -35,18 +45,23 @@ async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound):
         embed = discord.Embed(
             title="you're jacob's elo graph",
-            description=f"!play \n !skip \n !stop \n !q \n !speed \n !volume \n !default",
+            description=f"!play\n!skip\n!stop\n!q\n!speed\n!volume\n!default",
             color=discord.Color(0x000000)
         )
 
         await ctx.send(embed=embed)
 
+# get song from queue
+
 
 async def play_next(ctx):
+
+    global processing_video
+
     if not music_queue.empty():
-        song = music_queue.get_nowait()
-        await play_music(ctx, list(song.keys())[0])
-    elif not pending:
+        video = music_queue.get_nowait()
+        await play_music(ctx, video.yt_share_link)
+    else:
         asyncio.run_coroutine_threadsafe(
             ctx.voice_client.disconnect(), bot.loop)
         # reset to default settings upon leave
@@ -59,17 +74,12 @@ async def play_next(ctx):
         with open('config.json', 'w') as file:
             json.dump(config_data, file, indent=4)
 
+    processing_video = False
+
 
 async def play_music(ctx, url: str):
 
-    global pending
-    pending = True
-
-    voice_channel = ctx.author.voice.channel
-    voice_client = discord.utils.get(bot.voice_clients, guild=ctx.guild)
-
-    if voice_client is None:
-        voice_client = await voice_channel.connect()
+    global processing_video
 
     with open('config.json', 'r') as file:
         config_data = json.load(file)
@@ -82,11 +92,10 @@ async def play_music(ctx, url: str):
         'options': f'-vn -filter:a "volume={music_volume}, atempo={music_playback_speed}"'
     }
 
-    # if no music in queue
     try:
 
         ydl_opts = {
-            'format': 'bestaudio/best',  # Choose your desired format
+            'format': 'bestaudio',  # Choose your desired format
             'noplaylist': True,
             'quiet': True  # Suppress output
         }
@@ -100,50 +109,24 @@ async def play_music(ctx, url: str):
                 await ctx.send("Invalid YouTube link.")
                 return
 
-        # Handle playlists
-        if 'entries' in info:
-            for entry in info['entries']:
-                # Extract the video URL from the entry
-                video_url = entry['url']
-                # Process the video URL here
-                # ... (Your code to play the audio)
-        else:
-            # Extract the video URL for single videos
-            video_url = info['url']
-            # Process the video URL here
-            # ... (Your code to play the audio)
-
         if not ctx.voice_client.is_playing():
-
-            ctx.voice_client.play(discord.FFmpegOpusAudio(
-                video_url, **FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop))
             await ctx.send(f'Playing: {info["title"]} [{str(datetime.timedelta(seconds=info["duration"]))}] <{url}>')
-        else:
-            key = f"{url}"
-            value = f"{info["title"]}"
-            pair = {key: value}
-            print(pair)
-            music_queue.put(pair)
-            await ctx.send(f'Added {info["title"]} <{url}> to queue. Queue size of {music_queue.qsize()}')
+            ctx.voice_client.play(discord.FFmpegPCMAudio(
+                info['url'], **FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop))
+            processing_video = False
 
     except Exception as e:
-        embed = discord.Embed(
-            title="Issue that occurred and i didn't parse any of this",
-            color=discord.Color.red()
-        )
-        embed.add_field(name="", value=f"{e}", inline=True)
-
-        await ctx.send(embed=embed)
-        with music_queue.mutex:
-            music_queue.queue.clear()
-        asyncio.run_coroutine_threadsafe(
-            ctx.voice_client.disconnect(), bot.loop)
-
-    pending = False
+        await throw_error(ctx, e)
 
 
 @bot.command()
 async def play(ctx, *, query: str):
+
+    global processing_video
+
+    if ctx.author.id != 649361973074722818:
+        return
+
     if ctx.author.voice is None or ctx.author.voice.channel is None:
         await ctx.send("You need to be in a voice channel")
         return
@@ -154,35 +137,72 @@ async def play(ctx, *, query: str):
 
     try:
 
-        if "youtube.com" in query:
-            print(query)
-            await play_music(ctx, query)
-        elif "youtu.be" in query:
-            await play_music(ctx, f"https://www.youtube.com/watch?v={query.split('/')[-1]}")
+        ydl_link_settings = {
+            'format': 'bestaudio',  # Choose your desired format
+            'noplaylist': True,
+            'quiet': True,  # Suppress output
+        }
+
+        ydl_search_settings = {
+            'default_search': 'ytsearch',
+            'max_downloads': 1,
+            'quiet': True,
+            'noplaylist': True,
+            'extract-flat': True
+        }
+
+        shareable_url = ""
+        retrieved_video_info = None
+
+        if "&list" in query:  # is playlist link
+            shareable_url = f"{query[:query.find("&list")]}"
+
+        elif "youtu.be" in query:  # weird shortened youtube link
+            shareable_url = f"https://www.youtube.com/watch?v={
+                query.split('/')[-1]}"
+
+        elif "youtube.com" in query:  # exact normal youtube link
+            shareable_url = query
+
+        else:  # search query
+
+            with youtube_dl.YoutubeDL(ydl_search_settings) as ydl:
+                try:
+                    retrieved_video_info = ydl.extract_info(
+                        query, download=False)
+                except:
+                    await ctx.send("Invalid YouTube link.")
+                    return
+
+                shareable_url = retrieved_video_info['entries'][0]['webpage_url']
+
+        # not playing and nothing is in queue
+        if not ctx.voice_client.is_playing() and music_queue.empty() and not processing_video:
+            processing_video = True
+            await play_music(ctx, shareable_url)
+
+        # add to queue no matter what
         else:
-            search_query = f"ytsearch:{query}"
-            print(search_query)
-            with youtube_dl.YoutubeDL({'format': 'bestaudio'}) as ydl:
-                info = ydl.extract_info(search_query, download=False)
-                constructed_url = info['entries'][0]['webpage_url']
-                await play_music(ctx, constructed_url)
+            with youtube_dl.YoutubeDL(ydl_link_settings) as ydl:
+                info_dict = ydl.extract_info(shareable_url, download=False)
+                title = info_dict.get('title', None)
+                duration = info_dict.get(
+                    'duration', None)  # Duration in seconds
+                shareable_url = info_dict.get('webpage_url', None)
+
+            video_info = Video(title, duration, shareable_url)
+            music_queue.put(video_info)
+            await ctx.send(f"Added: {video_info.title} <{video_info.yt_share_link}> to queue. Queue size of {music_queue.qsize()}")
 
     except Exception as e:
-        embed = discord.Embed(
-            title="Issue that occurred and i didn't parse any of this",
-            color=discord.Color.red()
-        )
-        embed.add_field(name="", value=f"{e}", inline=True)
-
-        await ctx.send(embed=embed)
-        with music_queue.mutex:
-            music_queue.queue.clear()
-        asyncio.run_coroutine_threadsafe(
-            ctx.voice_client.disconnect(), bot.loop)
+        await throw_error(ctx, e)
 
 
 @bot.command()
 async def skip(ctx):
+
+    if ctx.author.id != 649361973074722818:
+        return
 
     if ctx.author.voice is None or ctx.author.voice.channel is None:
         await ctx.send("You need to be in a voice channel")
@@ -197,6 +217,11 @@ async def skip(ctx):
 
 @bot.command()
 async def stop(ctx):
+
+    global processing_video
+
+    if ctx.author.id != 649361973074722818:
+        return
 
     if ctx.author.voice is None or ctx.author.voice.channel is None:
         await ctx.send("You need to be in a voice channel")
@@ -216,6 +241,8 @@ async def stop(ctx):
     with open('config.json', 'w') as file:
         json.dump(config_data, file, indent=4)
 
+    processing_video = False
+
 
 @bot.command()
 async def q(ctx):
@@ -231,16 +258,9 @@ async def q(ctx):
     else:
         count = 0
 
-        for song in music_queue.queue:
-            constructed_queue_list += f"{count}. {
-                song[list(song.keys())[0]]} \n"
+        for video in music_queue.queue:
+            constructed_queue_list += f"{count}. {video.title} \n"
             count += 1
-
-        embed = discord.Embed(
-            title="Queue",
-            description=constructed_queue_list,
-            color=discord.Color(0x000000)
-        )
 
     embed = discord.Embed(
         title="Queue",
@@ -342,6 +362,20 @@ async def default(ctx):
     )
 
     await ctx.channel.send(embed=embed)
+
+
+async def throw_error(ctx, e: Exception):
+    embed = discord.Embed(
+        title="Issue that occurred and this time i did parse it",
+        color=discord.Color.red()
+    )
+    embed.add_field(name="", value=f"{e}", inline=True)
+
+    await ctx.send(embed=embed)
+    with music_queue.mutex:
+        music_queue.queue.clear()
+    asyncio.run_coroutine_threadsafe(
+        ctx.voice_client.disconnect(), bot.loop)
 
 
 def main() -> None:
