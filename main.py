@@ -37,7 +37,7 @@ async def on_ready():
     print(f'Logged in as {bot.user}')
     # riff raff main
     channel = bot.get_channel(1198864658308812842)
-    # await channel.send("Bot has restarted")
+    await channel.send("Bot has restarted")
 
 
 @bot.event
@@ -124,9 +124,6 @@ async def play(ctx, *, query: str):
 
     global processing_video
 
-    if ctx.author.id != 649361973074722818:
-        return
-
     if ctx.author.voice is None or ctx.author.voice.channel is None:
         await ctx.send("You need to be in a voice channel")
         return
@@ -201,9 +198,6 @@ async def play(ctx, *, query: str):
 @bot.command()
 async def skip(ctx):
 
-    if ctx.author.id != 649361973074722818:
-        return
-
     if ctx.author.voice is None or ctx.author.voice.channel is None:
         await ctx.send("You need to be in a voice channel")
         return
@@ -219,9 +213,6 @@ async def skip(ctx):
 async def stop(ctx):
 
     global processing_video
-
-    if ctx.author.id != 649361973074722818:
-        return
 
     if ctx.author.voice is None or ctx.author.voice.channel is None:
         await ctx.send("You need to be in a voice channel")
