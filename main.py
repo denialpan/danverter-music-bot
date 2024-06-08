@@ -2,7 +2,8 @@ from dotenv import load_dotenv
 import discord
 from discord.ext import commands
 import os
-import youtube_dl
+# i cant believe i was using the wrong youtube_dl library instead of dlp
+import yt_dlp as youtube_dl
 import json
 import asyncio
 import queue
@@ -10,13 +11,14 @@ import datetime
 
 
 class Video:
-    def __init__(self, title: str, duration: str, yt_share_link: str):
+    def __init__(self, title: str, duration: str, yt_share_link: str, yt_info: dict):
         self.title = title
         self.duration = duration
         self.yt_share_link = yt_share_link
+        self.yt_info = yt_info
 
     def __str__(self):
-        return f"DEBUG INFORMATION {self.title} {str(datetime.timedelta(seconds=self.duration))} <{self.yt_share_link}>"
+        return f"DEBUG INFORMATION {self.title} {self.duration} <{self.yt_share_link}>"
 
 
 intents = discord.Intents.default()
@@ -30,6 +32,8 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 
 music_queue = queue.Queue()
 processing_video = False
+
+DEBUG_AKA_IGNORE_RETARDS = True
 
 
 @bot.event
@@ -60,7 +64,7 @@ async def play_next(ctx):
 
     if not music_queue.empty():
         video = music_queue.get_nowait()
-        await play_music(ctx, video.yt_share_link)
+        await play_music(ctx, video.yt_info)
     else:
         asyncio.run_coroutine_threadsafe(
             ctx.voice_client.disconnect(), bot.loop)
@@ -77,8 +81,9 @@ async def play_next(ctx):
     processing_video = False
 
 
-async def play_music(ctx, url: str):
+async def play_music(ctx, info: dict):
 
+    print(f"yeah i got this info RETARD {info}")
     global processing_video
 
     with open('config.json', 'r') as file:
@@ -94,25 +99,10 @@ async def play_music(ctx, url: str):
 
     try:
 
-        ydl_opts = {
-            'format': 'bestaudio',  # Choose your desired format
-            'noplaylist': True,
-            'quiet': True  # Suppress output
-        }
-
-        info = None
-
-        with youtube_dl.YoutubeDL(ydl_opts) as ydl:
-            try:
-                info = ydl.extract_info(url, download=False)
-            except youtube_dl.utils.ExtractorError:
-                await ctx.send("Invalid YouTube link.")
-                return
-
         if not ctx.voice_client.is_playing():
-            await ctx.send(f'Playing: {info["title"]} [{str(datetime.timedelta(seconds=info["duration"]))}] <{url}>')
+            await ctx.send(f"Playing: {info.get('title')} [{info.get('duration_string')}] <{info.get('webpage_url')}>")
             ctx.voice_client.play(discord.FFmpegPCMAudio(
-                info['url'], **FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop))
+                info["url"], **FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop))
             processing_video = False
 
     except Exception as e:
@@ -121,6 +111,9 @@ async def play_music(ctx, url: str):
 
 @bot.command()
 async def play(ctx, *, query: str):
+
+    if DEBUG_AKA_IGNORE_RETARDS and not ctx.author.id == 649361973074722818:
+        return
 
     global processing_video
 
@@ -134,22 +127,22 @@ async def play(ctx, *, query: str):
 
     try:
 
+        retrieved_video_info = None
+
         ydl_link_settings = {
-            'format': 'bestaudio',  # Choose your desired format
+            'format': 'bestaudio',
             'noplaylist': True,
-            'quiet': True,  # Suppress output
+            'quiet': True,
         }
 
         ydl_search_settings = {
+            'format': 'bestaudio',
+            'noplaylist': True,
+            'quiet': True,
             'default_search': 'ytsearch',
             'max_downloads': 1,
-            'quiet': True,
-            'noplaylist': True,
-            'extract-flat': True
+            'extract-flat': True,
         }
-
-        shareable_url = ""
-        retrieved_video_info = None
 
         if "&list" in query:  # is playlist link
             shareable_url = f"{query[:query.find("&list")]}"
@@ -163,31 +156,29 @@ async def play(ctx, *, query: str):
 
         else:  # search query
 
+            print("here comes lag")
             with youtube_dl.YoutubeDL(ydl_search_settings) as ydl:
                 try:
                     retrieved_video_info = ydl.extract_info(
-                        query, download=False)
+                        query, download=False)['entries'][0]
                 except:
                     await ctx.send("Invalid YouTube link.")
                     return
 
-                shareable_url = retrieved_video_info['entries'][0]['webpage_url']
+        # if information has not been gotten yet
+        if not retrieved_video_info:
+            with youtube_dl.YoutubeDL(ydl_link_settings) as ydl:
+                retrieved_video_info = ydl.extract_info(
+                    shareable_url, download=False)['entries'][0]
 
         # not playing and nothing is in queue
         if not ctx.voice_client.is_playing() and music_queue.empty() and not processing_video:
             processing_video = True
-            await play_music(ctx, shareable_url)
+            await play_music(ctx, retrieved_video_info)
 
-        # add to queue no matter what
-        else:
-            with youtube_dl.YoutubeDL(ydl_link_settings) as ydl:
-                info_dict = ydl.extract_info(shareable_url, download=False)
-                title = info_dict.get('title', None)
-                duration = info_dict.get(
-                    'duration', None)  # Duration in seconds
-                shareable_url = info_dict.get('webpage_url', None)
-
-            video_info = Video(title, duration, shareable_url)
+        else:  # add to queue no matter what
+            video_info = Video(retrieved_video_info.get('title'), retrieved_video_info.get(
+                'duration_string'), retrieved_video_info.get('webpage_url'), retrieved_video_info)
             music_queue.put(video_info)
             await ctx.send(f"Added: {video_info.title} <{video_info.yt_share_link}> to queue. Queue size of {music_queue.qsize()}")
 
@@ -197,6 +188,9 @@ async def play(ctx, *, query: str):
 
 @bot.command()
 async def skip(ctx):
+
+    if DEBUG_AKA_IGNORE_RETARDS and not ctx.author.id == 649361973074722818:
+        return
 
     if ctx.author.voice is None or ctx.author.voice.channel is None:
         await ctx.send("You need to be in a voice channel")
@@ -211,6 +205,9 @@ async def skip(ctx):
 
 @bot.command()
 async def stop(ctx):
+
+    if DEBUG_AKA_IGNORE_RETARDS and not ctx.author.id == 649361973074722818:
+        return
 
     global processing_video
 
