@@ -33,7 +33,7 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 music_queue = queue.Queue()
 processing_video = False
 
-DEBUG_AKA_IGNORE_RETARDS = True
+DEBUG_MODE = False
 
 
 @bot.event
@@ -112,7 +112,7 @@ async def play_music(ctx, info: dict):
 @bot.command()
 async def play(ctx, *, query: str):
 
-    if DEBUG_AKA_IGNORE_RETARDS and not ctx.author.id == 649361973074722818:
+    if DEBUG_MODE and not ctx.author.id == 649361973074722818:
         return
 
     global processing_video
@@ -189,7 +189,7 @@ async def play(ctx, *, query: str):
 @bot.command()
 async def skip(ctx):
 
-    if DEBUG_AKA_IGNORE_RETARDS and not ctx.author.id == 649361973074722818:
+    if DEBUG_MODE and not ctx.author.id == 649361973074722818:
         return
 
     if ctx.author.voice is None or ctx.author.voice.channel is None:
@@ -206,7 +206,7 @@ async def skip(ctx):
 @bot.command()
 async def stop(ctx):
 
-    if DEBUG_AKA_IGNORE_RETARDS and not ctx.author.id == 649361973074722818:
+    if DEBUG_MODE and not ctx.author.id == 649361973074722818:
         return
 
     global processing_video
