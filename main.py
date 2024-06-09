@@ -83,7 +83,6 @@ async def play_next(ctx):
 
 async def play_music(ctx, info: dict):
 
-    print(f"yeah i got this info RETARD {info}")
     global processing_video
 
     with open('config.json', 'r') as file:
@@ -100,13 +99,15 @@ async def play_music(ctx, info: dict):
     try:
 
         if not ctx.voice_client.is_playing():
-            await ctx.send(f"Playing: {info.get('title')} [{info.get('duration_string')}] <{info.get('webpage_url')}>")
+            await ctx.send(f"Playing: {info.get('title')} [{str(datetime.timedelta(seconds=info.get('duration')))}] <{info.get('webpage_url')}>")
             ctx.voice_client.play(discord.FFmpegPCMAudio(
                 info["url"], **FFMPEG_OPTIONS), after=lambda e: asyncio.run_coroutine_threadsafe(play_next(ctx), bot.loop))
+
             processing_video = False
 
     except Exception as e:
         await throw_error(ctx, e)
+        processing_video = False
 
 
 @bot.command()
@@ -125,65 +126,59 @@ async def play(ctx, *, query: str):
     if ctx.voice_client is None:
         await voice_channel.connect()
 
-    try:
+    retrieved_video_info = None
 
-        retrieved_video_info = None
+    ydl_link_settings = {
+        'format': 'bestaudio',
+        'noplaylist': True,
+        'quiet': True,
+    }
 
-        ydl_link_settings = {
-            'format': 'bestaudio',
-            'noplaylist': True,
-            'quiet': True,
-        }
+    ydl_search_settings = {
+        'format': 'bestaudio',
+        'noplaylist': True,
+        'quiet': True,
+        'default_search': 'ytsearch',
+        'max_downloads': 1,
+        'extract-flat': True,
+    }
 
-        ydl_search_settings = {
-            'format': 'bestaudio',
-            'noplaylist': True,
-            'quiet': True,
-            'default_search': 'ytsearch',
-            'max_downloads': 1,
-            'extract-flat': True,
-        }
+    if "&list" in query:  # is playlist link
+        shareable_url = f"{query[:query.find("&list")]}"
 
-        if "&list" in query:  # is playlist link
-            shareable_url = f"{query[:query.find("&list")]}"
+    elif "youtu.be" in query:  # weird shortened youtube link
+        shareable_url = f"https://www.youtube.com/watch?v={
+            query.split('/')[-1]}"
 
-        elif "youtu.be" in query:  # weird shortened youtube link
-            shareable_url = f"https://www.youtube.com/watch?v={
-                query.split('/')[-1]}"
+    elif "youtube.com" in query:  # exact normal youtube link
+        shareable_url = query
 
-        elif "youtube.com" in query:  # exact normal youtube link
-            shareable_url = query
+    else:  # search query
 
-        else:  # search query
+        print("here comes lag")
+        with youtube_dl.YoutubeDL(ydl_search_settings) as ydl:
+            retrieved_video_info = ydl.extract_info(
+                query, download=False)['entries'][0]
 
-            print("here comes lag")
-            with youtube_dl.YoutubeDL(ydl_search_settings) as ydl:
-                try:
-                    retrieved_video_info = ydl.extract_info(
-                        query, download=False)['entries'][0]
-                except:
-                    await ctx.send("Invalid YouTube link.")
-                    return
-
-        # if information has not been gotten yet
-        if not retrieved_video_info:
+    # if information has not been gotten yet
+    if not retrieved_video_info:
+        try:
             with youtube_dl.YoutubeDL(ydl_link_settings) as ydl:
                 retrieved_video_info = ydl.extract_info(
-                    shareable_url, download=False)['entries'][0]
+                    shareable_url, download=False)
+        except:
+            await ctx.send("invalid link, how did you copy it wrong")
 
-        # not playing and nothing is in queue
-        if not ctx.voice_client.is_playing() and music_queue.empty() and not processing_video:
-            processing_video = True
-            await play_music(ctx, retrieved_video_info)
+    # not playing and nothing is in queue
+    if not ctx.voice_client.is_playing() and music_queue.empty() and not processing_video:
+        processing_video = True
+        await play_music(ctx, retrieved_video_info)
 
-        else:  # add to queue no matter what
-            video_info = Video(retrieved_video_info.get('title'), retrieved_video_info.get(
-                'duration_string'), retrieved_video_info.get('webpage_url'), retrieved_video_info)
-            music_queue.put(video_info)
-            await ctx.send(f"Added: {video_info.title} <{video_info.yt_share_link}> to queue. Queue size of {music_queue.qsize()}")
-
-    except Exception as e:
-        await throw_error(ctx, e)
+    else:  # add to queue no matter what
+        video_info = Video(retrieved_video_info.get('title'), retrieved_video_info.get(
+            'duration_string'), retrieved_video_info.get('webpage_url'), retrieved_video_info)
+        music_queue.put(video_info)
+        await ctx.send(f"Added: {retrieved_video_info.get('title')} <{retrieved_video_info.get('webpage_url')}> to queue. Queue size of {music_queue.qsize()}")
 
 
 @bot.command()
