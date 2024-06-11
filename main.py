@@ -158,7 +158,13 @@ async def play(ctx, *, query: str):
         print("here comes lag")
         with youtube_dl.YoutubeDL(ydl_search_settings) as ydl:
             retrieved_video_info = ydl.extract_info(
-                query, download=False)['entries'][0]
+                query, download=False)
+
+            if len(retrieved_video_info['entries']) > 0:
+                retrieved_video_info = retrieved_video_info['entries'][0]
+            else:
+                await ctx.send("No relevant search results for your insane query")
+                return
 
     # if information has not been gotten yet
     if not retrieved_video_info:
@@ -166,6 +172,7 @@ async def play(ctx, *, query: str):
             with youtube_dl.YoutubeDL(ydl_link_settings) as ydl:
                 retrieved_video_info = ydl.extract_info(
                     shareable_url, download=False)
+
         except:
             await ctx.send("invalid link, how did you copy it wrong")
 
