@@ -164,6 +164,20 @@ async def play(ctx, *, query: str):
                 retrieved_video_info = retrieved_video_info['entries'][0]
             else:
                 await ctx.send("No relevant search results for your insane query")
+
+                if not ctx.voice_client.is_playing() and music_queue.empty() and not processing_video:
+                    asyncio.run_coroutine_threadsafe(
+                        ctx.voice_client.disconnect(), bot.loop)
+                    # reset to default settings upon leave
+                    with open('config.json', 'r') as file:
+                        config_data = json.load(file)
+
+                    config_data['volume'] = 1
+                    config_data['playback_speed'] = 1
+
+                    with open('config.json', 'w') as file:
+                        json.dump(config_data, file, indent=4)
+
                 return
 
     # if information has not been gotten yet
