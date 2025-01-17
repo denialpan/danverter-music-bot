@@ -33,6 +33,8 @@ TOKEN = os.getenv("DISCORD_TOKEN")
 music_queue = queue.Queue()
 processing_video = False
 
+COOKIES_FILE_PATH = 'www.youtube.com_cookies.txt'
+
 DEBUG_MODE = False
 
 
@@ -132,6 +134,7 @@ async def play(ctx, *, query: str):
         'format': 'bestaudio',
         'noplaylist': True,
         'quiet': True,
+        'cookiefile': COOKIES_FILE_PATH,
     }
 
     ydl_search_settings = {
@@ -141,6 +144,8 @@ async def play(ctx, *, query: str):
         'default_search': 'ytsearch',
         'max_downloads': 1,
         'extract-flat': True,
+        'cookiefile': COOKIES_FILE_PATH,
+
     }
 
     if "&list" in query:  # is playlist link
