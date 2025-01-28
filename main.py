@@ -135,6 +135,8 @@ async def play(ctx, *, query: str):
         'noplaylist': True,
         'quiet': True,
         'cookiefile': COOKIES_FILE_PATH,
+        'ignoreerrors': True,
+        'extractor_args': {'youtube': {'player_client': ['android']}},
     }
 
     ydl_search_settings = {
@@ -145,7 +147,8 @@ async def play(ctx, *, query: str):
         'max_downloads': 1,
         'extract-flat': True,
         'cookiefile': COOKIES_FILE_PATH,
-
+        'ignoreerrors': True,
+        'extractor_args': {'youtube': {'player_client': ['android']}},
     }
 
     if "&list" in query:  # is playlist link
